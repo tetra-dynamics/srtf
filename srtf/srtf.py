@@ -115,11 +115,12 @@ class SRTF:
 class EpisodeDataset(torch.utils.data.Dataset):
     '''Simple dataset that provides all full datapoints'''
 
-    def __init__(self, srtf: SRTF, chunk_size: int, episode_names: Optional[List[str]] = None, prefix_exclude_count: int = 0):
+    def __init__(self, srtf: SRTF, chunk_size: int, episode_names: Optional[List[str]] = None, prefix_exclude_count: int = 0, include_images: bool = True):
         self.srtf = srtf
         self.chunk_size = chunk_size
         # prefix_exclude_count allows you to exclude the first n frames from all episodes
         self.prefix_exclude_count = prefix_exclude_count
+        self.include_images = include_images
 
         self.all_metadata = []
         self.episode_offsets = []
@@ -149,7 +150,7 @@ class EpisodeDataset(torch.utils.data.Dataset):
         states, actions = self.srtf.read_samples(metadata, frame_idx, frame_idx + self.chunk_size)
         state = states[0]
 
-        images = self.srtf.read_images(metadata, frame_idx)
+        images = self.srtf.read_images(metadata, frame_idx) if self.include_images else None
 
         return state, images, actions
 
