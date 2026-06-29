@@ -59,6 +59,17 @@ def main():
         assert (state_batch == state_batch_expected).all()
         assert (actions_batch == actions_expected).all()
 
+        dataset_prefix_excluded = EpisodeDataset(srtf, 2, prefix_exclude_count=1)
+        assert len(dataset_prefix_excluded) == 6
+        all_states = []
+        for i in range(len(dataset_prefix_excluded)):
+            state, images, actions = dataset_prefix_excluded[i]
+            all_states.append(state)
+
+        prefix_state_batch = torch.stack(all_states)
+        prefix_state_expected = torch.tensor([[1], [2], [3], [2], [4], [6]], dtype=torch.float32)
+        assert (prefix_state_batch == prefix_state_expected).all()
+
 def test_center_crop():
     assert center_crop((640, 480), (224, 224)) == (80, 0, 480, 480)
     assert center_crop((640, 480), (480, 360)) == (0, 0, 640, 480)

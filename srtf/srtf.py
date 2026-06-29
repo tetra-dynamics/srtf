@@ -115,9 +115,11 @@ class SRTF:
 class EpisodeDataset(torch.utils.data.Dataset):
     '''Simple dataset that provides all full datapoints'''
 
-    def __init__(self, srtf: SRTF, chunk_size: int, episode_names: Optional[List[str]] = None):
+    def __init__(self, srtf: SRTF, chunk_size: int, episode_names: Optional[List[str]] = None, prefix_exclude_count: int = 0):
         self.srtf = srtf
         self.chunk_size = chunk_size
+        # prefix_exclude_count allows you to exclude the first n frames from all episodes
+        self.prefix_exclude_count = prefix_exclude_count
 
         self.all_metadata = []
         self.episode_offsets = []
@@ -128,10 +130,11 @@ class EpisodeDataset(torch.utils.data.Dataset):
 
         for episode_name in episode_names:
             metadata = srtf.read_metadata(episode_name)
-            self.all_metadata.append(metadata)
-            num_datapoints = metadata.num_samples - (chunk_size - 1)
-            self.total_datapoints += num_datapoints
-            self.episode_offsets.append(self.total_datapoints)
+            num_datapoints = metadata.num_samples - (chunk_size - 1) - self.prefix_exclude_count
+            if num_datapoints > 0:
+                self.all_metadata.append(metadata)
+                self.total_datapoints += num_datapoints
+                self.episode_offsets.append(self.total_datapoints)
 
     def __len__(self):
         return self.total_datapoints
@@ -139,7 +142,8 @@ class EpisodeDataset(torch.utils.data.Dataset):
     def __getitem__(self, idx: int):
         episode_idx = bisect.bisect_right(self.episode_offsets, idx)
         metadata = self.all_metadata[episode_idx]
-        frame_idx = idx
+
+        frame_idx = idx + self.prefix_exclude_count
         if episode_idx > 0:
             frame_idx -= self.episode_offsets[episode_idx - 1]
         states, actions = self.srtf.read_samples(metadata, frame_idx, frame_idx + self.chunk_size)

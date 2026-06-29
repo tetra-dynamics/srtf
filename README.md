@@ -6,7 +6,7 @@ The purpose of SRTF is to be a simple format for robot datasets for training vis
 
 1. All data is stored by episode
 2. State and action data is stored in a row oriented flat file so the state and actions for a given sample can be read with a single read
-3. All camera images are stored together in a single MP4 file at their resized resolution. That file has the header stored at the beginning, and uses keyframes every second and no B frames such that decoding a random frame of video can be done in a consistent amount of time.
+3. All camera images are stored together in a single MP4 file at their resized resolution. The combined MP4 file has the header stored at the beginning, uses keyframes every second, and does not use B frames. This allows decoding a random frame of video in a consistent amount of time.
 
 This lets you train over very large datasets of robot data performantly without having to preshuffle data.
 
@@ -46,7 +46,7 @@ dataset = EpisodeDataset(srtf, chunk_size=30)
 state, images, actions = dataset[random.randint(0, len(dataset))]
 ```
 
-You can also pass in a list of episode names using the `episode_names` parameter when creating a dataset if you want to train on a subset of the episodes.
+You can also pass in a list of episode names using the `episode_names` parameter when creating a dataset in order to train on a subset of the episodes.
 
 ## Installation
 
