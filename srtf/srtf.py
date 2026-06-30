@@ -140,7 +140,8 @@ class EpisodeDataset(torch.utils.data.Dataset):
     def __len__(self):
         return self.total_datapoints
 
-    def __getitem__(self, idx: int):
+    def get_sample_and_metadata(self, idx: int) -> Tuple[torch.Tensor, Optional[torch.Tensor], torch.Tensor, EpisodeMetadata, int]:
+        '''Helper method if you're wrapping EpisodeDataset with your own logic'''
         episode_idx = bisect.bisect_right(self.episode_offsets, idx)
         metadata = self.all_metadata[episode_idx]
 
@@ -152,8 +153,11 @@ class EpisodeDataset(torch.utils.data.Dataset):
 
         images = self.srtf.read_images(metadata, frame_idx) if self.include_images else None
 
-        return state, images, actions
+        return state, images, actions, metadata, frame_idx
 
+    def __getitem__(self, idx: int) -> Tuple[torch.Tensor, Optional[torch.Tensor], torch.Tensor]:
+        state, images, actions, _, _ = self.get_sample_and_metadata(idx)
+        return state, images, actions
 
 X264 = ["-c:v", "libx264", "-preset", "fast", "-crf", "18", "-bf", "0", "-pix_fmt", "yuv420p"]
 
