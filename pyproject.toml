@@ -2,7 +2,7 @@
 name = "srtf"
 version = "0.1.0"
 requires-python = ">=3.10"
-dependencies = ["torch", "torchcodecs"]
+dependencies = ["torch", "torchcodec"]
 
 [build-system]
 requires = ["setuptools>=68"]
