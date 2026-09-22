@@ -4,7 +4,7 @@ import json
 import pathlib
 import subprocess
 import tempfile
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Literal, Optional, Tuple
 import uuid
 
 import torch
@@ -29,6 +29,7 @@ class Camera:
     name: str
     src_path: pathlib.Path # The video file containing the camera stream
     src_crop: Optional[Tuple[int, int, int, int]] = None # How to crop from the source stream before resizing
+    src_rotation: Optional[Literal['cw', 'ccw']] = None # Whether to optionally rotate the image after cropping
 
 class SRTF:
     def __init__(self, root_dir: pathlib.Path):
@@ -60,7 +61,7 @@ class SRTF:
 
         return states, actions
 
-    def read_images(self, metadata: EpisodeMetadata, frame_idx) -> torch.Tensor:
+    def read_images(self, metadata: EpisodeMetadata, frame_idx: int) -> torch.Tensor:
         from torchcodec.decoders import VideoDecoder # don't make torchcodec a requirement for generating the dataset
 
         framerate = metadata.framerate
@@ -76,7 +77,7 @@ class SRTF:
         mapping = json.dumps({"frames": frames})
         video_path = self.root_dir.joinpath(metadata.name, 'combined.mp4')
         decoder = VideoDecoder(str(video_path), custom_frame_mappings=mapping, dimension_order='NHWC')
-        frame = decoder[frame_idx]  # (n_cams * H, W, C) uint8
+        frame = decoder.get_frame_at(frame_idx).data  # (n_cams * H, W, C) uint8
 
         n_cams = len(metadata.camera_names)
         total_H, W, C = frame.shape
@@ -236,7 +237,6 @@ def generate_downsized_videos(path: pathlib.Path, cameras: List[Camera], parent_
     encoded_paths = []
     encoders = []
     encoder_inputs = []
-    src_crops = []
     for camera in cameras:
         encoded_path = parent_dir.joinpath(camera.name + '.mp4')
         encoded_paths.append(encoded_path)
@@ -245,7 +245,6 @@ def generate_downsized_videos(path: pathlib.Path, cameras: List[Camera], parent_
         if src_crop is None:
             src_crop = center_crop((src_width, src_height), target_size)
         _, _, input_width, input_height = src_crop
-        src_crops.append(src_crop)
 
         encoder = subprocess.Popen(
             ["ffmpeg", "-y", "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", f"{input_width}x{input_height}",
@@ -268,6 +267,10 @@ def generate_downsized_videos(path: pathlib.Path, cameras: List[Camera], parent_
                 if camera.src_crop:
                     x, y, width, height = camera.src_crop
                     cropped_frame = frame[y:y+height, x:x+width].contiguous()
+
+                if camera.src_rotation is not None:
+                    k = -1 if camera.src_rotation == 'cw' else 1
+                    cropped_frame = torch.rot90(cropped_frame, k=k, dims=(0, 1))
 
                 cropped_frame_bytes = cropped_frame.numpy().tobytes()
                 encoder_input.write(cropped_frame_bytes)
